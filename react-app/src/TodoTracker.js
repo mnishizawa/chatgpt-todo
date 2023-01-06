@@ -3,12 +3,14 @@ import axios from 'axios';
 
 function TodoTracker() {
     const [todos, setTodos] = useState([]);
+    const [dones, setDones] = useState([]);
     const [newTodo, setNewTodo] = useState('');
 
     useEffect(() => {
         // Fetch the todos from the Rust service when the component mounts
         axios.get('http://localhost:8000/todos').then(response => {
-            setTodos(response.data);
+            setTodos(response.data.filter((todo) => todo.completed === false));
+            setDones(response.data.filter((todo) => todo.completed === true));
         });
     }, []);
 
@@ -25,14 +27,22 @@ function TodoTracker() {
         // Remove the todo from the Rust service
         axios.delete(`http://localhost:8000/todos/${id}`).then(() => {
             setTodos(todos.filter(todo => todo.id !== id));
+            setDones(dones.filter(todo => todo.id !== id));
         });
     }
 
     function handleToggle(id) {
         // Toggle the "completed" status of the todo in the Rust service
-        const todo = todos.find(todo => todo.id === id);
+
+        const todo = [...todos,...dones].find(todo => todo.id === id);
         axios.patch(`http://localhost:8000/todos/${id}`, {id: todo.id, title: todo.title, completed: !todo.completed }).then(response => {
-            setTodos(todos.map(todo => (todo.id === id ? response.data : todo)));
+            if (todo.completed) {
+                setTodos([...todos,response.data])
+                setDones(dones.filter(dones => dones.id !== id));
+            } else {
+                setTodos(todos.filter(todo => todo.id !== id));
+                setDones([...dones,response.data])
+            }
         });
     }
 
@@ -47,6 +57,7 @@ function TodoTracker() {
                 />
                 <button type="submit">Add Todo</button>
             </form>
+            <h3>In Progress</h3>
             <ul>
                 {todos.map(todo => (
                     <li key={todo.id}>
@@ -57,6 +68,21 @@ function TodoTracker() {
                         />
                         {todo.title}
                         <button onClick={() => handleDelete(todo.id)}>Delete</button>
+                    </li>
+                ))}
+            </ul>
+            <hr/>
+           <h3>Done</h3>
+            <ul>
+                {dones.map(done => (
+                    <li key={done.id}>
+                        <input
+                            type="checkbox"
+                            checked={done.completed}
+                            onChange={() => handleToggle(done.id)}
+                        />
+                        {done.title}
+                        <button onClick={() => handleDelete(done.id)}>Delete</button>
                     </li>
                 ))}
             </ul>
